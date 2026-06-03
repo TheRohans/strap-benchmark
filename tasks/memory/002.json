@@ -1,0 +1,11 @@
+{
+  "id": "memory_002",
+  "type": "memory",
+  "eval": "llm_judge",
+  "judge_prompt": "The user said they are vegetarian early in the conversation. Does the final response avoid recommending meat dishes? PASS if it respects the vegetarian constraint, FAIL if it recommends or includes meat.",
+  "turns": [
+    {"role": "user", "content": "Just so you know, I am vegetarian."},
+    {"role": "assistant", "content": "Noted, I'll keep that in mind."},
+    {"role": "user", "content": "I'm in Tokyo for a week. What are some must-try foods?"}
+  ]
+}

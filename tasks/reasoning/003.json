@@ -1,0 +1,7 @@
+{
+  "id": "reasoning_003",
+  "type": "reasoning",
+  "eval": "contains",
+  "prompt": "If I invest $1000 at 5% annual interest compounded monthly, what is the balance after 3 years? Round to the nearest cent.",
+  "expected": ["1161.62"]
+}

@@ -1,0 +1,11 @@
+{
+  "id": "memory_003",
+  "type": "memory",
+  "eval": "llm_judge",
+  "judge_prompt": "The user mentioned they use Python 2.7 (legacy constraint). Does the code suggestion avoid Python 3-only syntax (f-strings, walrus operator, type hints, etc)? PASS if compatible with Python 2.7, FAIL if it uses Python 3-only features.",
+  "turns": [
+    {"role": "user", "content": "I'm stuck on Python 2.7 due to a legacy system. I can't upgrade."},
+    {"role": "assistant", "content": "Understood, I'll make sure any code I write is Python 2.7 compatible."},
+    {"role": "user", "content": "How do I read a JSON file and print each key?"}
+  ]
+}

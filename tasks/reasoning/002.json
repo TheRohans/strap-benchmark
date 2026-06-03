@@ -1,0 +1,7 @@
+{
+  "id": "reasoning_002",
+  "type": "reasoning",
+  "eval": "contains",
+  "prompt": "A train leaves Station A at 9:00am travelling at 80km/h. Another train leaves Station B (240km away) at 9:30am travelling toward Station A at 100km/h. At what time do they meet? Give the time in HH:MM format.",
+  "expected": ["10:50"]
+}

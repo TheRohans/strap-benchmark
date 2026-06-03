@@ -1,0 +1,11 @@
+{
+  "id": "memory_001",
+  "type": "memory",
+  "eval": "llm_judge",
+  "judge_prompt": "Does the response respect the $300 budget constraint that was stated at the start of the conversation? PASS if the response acknowledges or stays within $300, FAIL if it ignores or exceeds the budget.",
+  "turns": [
+    {"role": "user", "content": "My total budget for a PC build is $300. Keep that in mind."},
+    {"role": "assistant", "content": "Got it, I'll keep your $300 budget in mind."},
+    {"role": "user", "content": "What GPU should I get?"}
+  ]
+}

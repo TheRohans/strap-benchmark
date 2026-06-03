@@ -1,0 +1,7 @@
+{
+  "id": "context_002",
+  "type": "context",
+  "eval": "contains",
+  "prompt": "Here is a long configuration file. Answer the question at the end.\n\n---\n[database]\nhost = db.internal\nport = 5432\nname = production_db\nmax_connections = 100\nssl = true\n\n[cache]\nbackend = redis\nhost = cache.internal\nport = 6379\nttl = 3600\nmax_memory = 2gb\n\n[api]\nhost = 0.0.0.0\nport = 8080\nworkers = 4\ntimeout = 30\nrate_limit = 1000\n\n[auth]\nmethod = jwt\nsecret_key = PLACEHOLDER\ntoken_expiry = 86400\nrefresh_expiry = 604800\n\n[logging]\nlevel = info\nformat = json\nfile = /var/log/app/app.log\nmax_size = 100mb\nrotate = daily\n\n[storage]\nbackend = s3\nbucket = myapp-assets-prod\nregion = ap-southeast-2\ncdn_url = https://cdn.example.com\n\n[features]\ndark_mode = true\nbeta_features = false\nmaintenance_mode = false\nmax_upload_size = 50mb\n\n[smtp]\nhost = smtp.sendgrid.net\nport = 587\nusername = apikey\nfrom_address = noreply@example.com\nfrom_name = MyApp\n\n[monitoring]\nmetrics_port = 9090\nhealth_check_path = /health\ntrace_sample_rate = 0.1\nerror_alert_email = ops@example.com\n\n---\n\nWhat region is the S3 storage bucket configured for?",
+  "expected": ["ap-southeast-2"]
+}

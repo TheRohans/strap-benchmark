@@ -1,0 +1,7 @@
+{
+  "id": "reasoning_001",
+  "type": "reasoning",
+  "eval": "contains",
+  "prompt": "What is the sum of all prime numbers less than 50? Show your working.",
+  "expected": ["328"]
+}
