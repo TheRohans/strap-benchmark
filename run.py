@@ -113,6 +113,8 @@ def run_runner(name: str, runner_factory, tasks: list[dict]) -> list[dict]:
             expected = task.get("expected", "?")
             got = result.get("got", "").strip()
             print(f"    expected : {expected}")
+            if result.get("method") == "error":
+                print(f"      error  : {result.get('error', '?')}")
             for line in got.splitlines():
                 print(f"             | {line}")
 

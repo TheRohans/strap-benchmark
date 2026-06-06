@@ -17,7 +17,7 @@ class StrapRunner:
         password:      str | None = os.environ.get("STRAP_PASSWORD") or None,
         channel:       str        = os.environ.get("STRAP_CHANNEL",  "#main"),
         silence_secs:  float      = 4.0,
-        timeout_secs:  float      = 60.0,
+        timeout_secs:  float      = float(os.environ.get("STRAP_TIMEOUT", "300")),
     ):
         self.host = host
         self.port = port
@@ -49,10 +49,28 @@ class StrapRunner:
 
     def reset(self) -> None:
         log.debug("resetting session (.clear)")
+        if not self._connected:
+            log.warning("socket lost — reconnecting")
+            self._reconnect()
         self._drain()
-        self._send(f"PRIVMSG {self.channel} :.clear")
+        try:
+            self._send(f"PRIVMSG {self.channel} :.clear")
+        except OSError:
+            log.warning("send failed on .clear — reconnecting")
+            self._reconnect()
+            self._send(f"PRIVMSG {self.channel} :.clear")
         time.sleep(1.0)
         self._drain()
+
+    def _reconnect(self) -> None:
+        if self._sock:
+            try:
+                self._sock.close()
+            except Exception:
+                pass
+        self._connected = False
+        self._responses = Queue()
+        self.connect()
 
     def close(self) -> None:
         log.info("closing connection")
@@ -69,12 +87,13 @@ class StrapRunner:
         log.debug("task %s — %d turn(s)", task["id"], len(turns))
 
         for i, turn in enumerate(turns[:-1]):
+            turn = self._irc_safe(turn)
             log.debug("  sending turn %d/%d: %s", i + 1, len(turns), turn[:80])
             self._drain()
             self._send(f"PRIVMSG {self.channel} :{turn}")
             self._collect(label=f"turn-{i+1}")
 
-        final = turns[-1]
+        final = self._irc_safe(turns[-1])
         log.debug("  sending final turn: %s", final[:80])
         self._drain()
         self._send(f"PRIVMSG {self.channel} :{final}")
@@ -126,24 +145,35 @@ class StrapRunner:
         if drained:
             log.debug("drained %d stale message(s)", drained)
 
+    # Sent by strap after every completed top-level response.
+    _DONE_MARKER = "\x01DONE\x01"
+
     def _collect(self, label: str = "") -> str:
-        """Accumulate response chunks until silence_secs of quiet."""
+        """Accumulate response chunks until strap's DONE marker or silence_secs of quiet."""
         parts: list[str] = []
         last_received = time.time()
         start = last_received
+        last_logged = start
 
         while True:
             try:
                 msg = self._responses.get(timeout=0.5)
+                if msg == self._DONE_MARKER:
+                    log.debug(
+                        "collect[%s] DONE marker — %d chunk(s), %.1fs total",
+                        label, len(parts), time.time() - start,
+                    )
+                    break
                 parts.append(msg)
                 last_received = time.time()
+                last_logged   = last_received
             except Empty:
                 silent_for = time.time() - last_received
                 elapsed    = time.time() - start
 
                 if parts and silent_for >= self.silence_secs:
                     log.debug(
-                        "collect[%s] done — %d chunk(s), %.1fs silence, %.1fs total",
+                        "collect[%s] done (silence) — %d chunk(s), %.1fs silence, %.1fs total",
                         label, len(parts), silent_for, elapsed,
                     )
                     break
@@ -153,10 +183,20 @@ class StrapRunner:
                         label, elapsed, len(parts),
                     )
                     break
+                if time.time() - last_logged >= 10.0:
+                    log.info(
+                        "collect[%s] waiting… %.0fs elapsed, %d chunk(s) so far",
+                        label, elapsed, len(parts),
+                    )
+                    last_logged = time.time()
 
         return "\n".join(parts)
 
+    def _irc_safe(self, text: str) -> str:
+        """Collapse whitespace — IRC PRIVMSG is single-line only."""
+        return " ".join(text.split())
+
     def _build_turns(self, task: dict) -> list[str]:
-        if task["type"] == "reasoning":
+        if "prompt" in task:
             return [task["prompt"]]
         return [t["content"] for t in task["turns"] if t["role"] == "user"]

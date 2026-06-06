@@ -27,7 +27,7 @@ class QwenRunner:
         pass
 
     def _build_messages(self, task: dict) -> list[dict]:
-        if task["type"] == "reasoning":
+        if "prompt" in task:
             return [{"role": "user", "content": task["prompt"]}]
         # multi-turn: send full conversation history
         return [{"role": t["role"], "content": t["content"]} for t in task["turns"]]

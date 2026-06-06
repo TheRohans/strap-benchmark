@@ -106,9 +106,10 @@ def generate(
                 context = filler[:insert_at] + " " + needle_sentence + " " + filler[insert_at:]
 
                 prompt = (
+                    f"Read the following text carefully, then answer the question at the end.\n\n"
                     f"{context}\n\n"
                     f"What is the value associated with the identifier {needle_key}? "
-                    f"Reply with only the value, nothing else."
+                    f"Reply with only the value, nothing else.\n\n"
                 )
 
                 tasks.append({
