@@ -4,3 +4,6 @@ __pycache__/
 .env
 results/*.json
 !results/.gitkeep
+.DS_Store
+*~
+
