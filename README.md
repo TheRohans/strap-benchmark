@@ -2,7 +2,7 @@
 
 A harness-agnostic benchmark for comparing LLM inference backends on reasoning, memory, and long-context retrieval tasks.
 
-Originally written to evaluate [Strap](https://therohans.com), a closed-source LLM harness optimised for small models, against a raw Ollama baseline using the same underlying model (Qwen 2.5 14B). The benchmark design keeps the underlying model constant so any accuracy or latency difference is attributable to the harness, not to model quality.
+Originally written to evaluate [Strap](https://therohans.com/strap/), a closed-source LLM harness optimised for small models, against a raw llama.cpp baseline using the same underlying model (currently Qwen 3.6 27B on a Nvidia RTX 5080 16GB (but could be anything)). The benchmark design keeps the underlying model constant so any accuracy or latency difference is attributable to the harness, not to model quality.
 
 ---
 
@@ -20,7 +20,7 @@ Originally written to evaluate [Strap](https://therohans.com), a closed-source L
 
 ## What is Strap?
 
-Strap is a closed-source AI harness designed for small, locally-hosted models. Its distinguishing features relative to a bare Ollama call are:
+Strap is a closed-source AI harness designed for small, locally-hosted models. Its distinguishing features relative to a bare llama.cpp call are:
 
 - **Persistent session memory** — conversation history is managed across turns in a compressed format optimised for small context windows.
 - **Lisp interpreter tool** — deterministic arithmetic and symbolic reasoning are offloaded to an embedded Lisp evaluator rather than relying on the model's arithmetic.
