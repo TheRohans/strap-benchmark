@@ -38,7 +38,8 @@ _JUDGE_ENV  = JUDGE_BASE_URL=$(JUDGE_BASE_URL) JUDGE_MODEL=$(JUDGE_MODEL) JUDGE_
         gsm8k-strap gsm8k-qwen gsm8k \
         math-strap  math-qwen  math  \
         ruler-strap ruler-qwen ruler \
-        all-strap   all-qwen   all
+        all-strap   all-qwen   all   \
+        report
 
 help:
 	@echo ""
@@ -57,6 +58,7 @@ help:
 	@echo "  all-strap      All three benchmarks         → strap"
 	@echo "  all-qwen       All three benchmarks         → base_qwen"
 	@echo "  all            All three benchmarks         → both"
+	@echo "  report         Regenerate charts from results/ → reports/"
 	@echo ""
 	@echo "Key variables (current values):"
 	@echo "  STRAP_HOST=$(STRAP_HOST)  STRAP_PORT=$(STRAP_PORT)  STRAP_CHANNEL=$(STRAP_CHANNEL)"
@@ -115,6 +117,11 @@ ruler-qwen:
 		--log-level $(LOG_LEVEL)
 
 # ── combined ──────────────────────────────────────────────────────────────────
+
+report:
+	$(PYTHON) analyze.py --out-dir reports/
+	@echo ""
+	@echo "Charts saved to reports/"
 
 gsm8k: gsm8k-strap gsm8k-qwen
 
