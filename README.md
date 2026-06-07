@@ -27,11 +27,7 @@ Strap is a closed-source AI harness designed for small, locally-hosted models. I
 - **Context-window optimisation** — a proprietary packing scheme maximises usable context on models with small windows.
 - **Sub-agent architecture** — complex tasks are broken into sub-tasks dispatched as separate model calls and reassembled.
 
-Strap exposes itself as a **single-client IRC server** (port 6667 by default). Clients register with NICK/USER (and optionally PASS), then post messages to `#main` via `PRIVMSG`. Responses arrive as PRIVMSG lines from the `strap` nick. The server auto-joins the client to `#main` on registration; no explicit JOIN is needed.
-
-### Why IRC?
-
-The IRC interface makes Strap easy to drive from any language without a custom SDK, and naturally supports streaming responses (the model writes tokens to the channel as they are generated).
+Strap can be used in TUI mode (on your local system), or it exposes itself as a **single-client IRC server** (port 6667 by default) when run in server mode. Clients register with NICK/USER (and optionally PASS), then post messages to `#main` via `PRIVMSG`. Responses arrive as PRIVMSG lines from the `strap` nick. The server auto-joins the client to `#main` on registration; no explicit JOIN is needed.
 
 ---
 
@@ -70,18 +66,7 @@ strap-benchmark/
 ```bash
 pip install -r requirements.txt
 
-# Baseline: raw Qwen via Ollama
-QWEN_BASE_URL=http://192.168.1.25:11434/v1 \
-python run.py --dataset gsm8k --max-samples 50 --runner base_qwen
-
-# Strap
-STRAP_HOST=192.168.1.36 STRAP_PASSWORD=<pass> \
-python run.py --dataset gsm8k --max-samples 50 --runner strap
-
-# Both at once (same run, same tasks, one table)
-QWEN_BASE_URL=http://192.168.1.25:11434/v1 \
-STRAP_HOST=192.168.1.36 STRAP_PASSWORD=<pass> \
-python run.py --dataset gsm8k --max-samples 50
+make all
 ```
 
 Results are printed as a comparison table and saved to `results/<timestamp>.json`.
@@ -243,8 +228,8 @@ Result files have the envelope format:
 
 ## Methodology notes
 
-- The same base model (Qwen 2.5 14B via Ollama) runs under both the raw baseline and Strap. Model quality is held constant; only the harness differs.
-- MATH-500 answers are LaTeX expressions — `llm_judge` scoring uses a second model call and is not perfectly deterministic. Run multiple times and report mean ± stddev if precision matters.
+- The same base model (Qwen 3.6 27B via llama.cpp) runs under both the raw baseline and Strap. Model quality is held constant; only the harness differs.
+- MATH-500 answers are LaTeX expressions — `llm_judge` scoring uses a second model call and is not perfectly deterministic. Run multiple times and report mean ± stddev if precision matters. Math-500 is currently judged by qwen2.5-math-7b-instruct running on a different server than the harness or the Qwen 3.6 model.
 - RULER context lengths are measured in characters ÷ 4 (rough token approximation). Actual token counts vary by tokeniser.
 - The Strap sub-agent architecture means it may issue multiple underlying model calls per task. Elapsed time includes all of them. This is intentional — the benchmark measures end-to-end task latency, not single-call latency.
 
@@ -252,39 +237,7 @@ Result files have the envelope format:
 
 ## Running all benchmarks
 
-Set environment variables once:
-
-```bash
-export QWEN_BASE_URL=http://192.168.1.25:11434/v1
-export STRAP_HOST=192.168.1.36
-export STRAP_PASSWORD=password
-```
-
-Run each dataset individually:
-
-```bash
-# 1. GSM8K — arithmetic reasoning (~8 min for 50 samples)
-python run.py --dataset gsm8k --max-samples 50
-
-# 2. MATH-500 — competition math; where the Lisp tool should show clear advantage
-#    --max-level 3 keeps runtime reasonable on local hardware
-python run.py --dataset math --max-samples 50 --max-level 3
-
-# 3. RULER NIAH — long-context retrieval (27 tasks: 3 lengths × 3 depths × 3 per config)
-python run.py --dataset ruler \
-  --context-lengths 2000,4000,8000 \
-  --needle-depths 0.1,0.5,0.9 \
-  --ruler-n 3
-```
-
-Or all three in one run (single result file, one comparison table):
-
-```bash
-python run.py --dataset gsm8k --dataset math --dataset ruler \
-  --max-samples 50 --max-level 3
-
-python analyze.py
-```
+See the Makefile for all the tasks and settings
 
 ---
 
