@@ -6,6 +6,18 @@ Originally written to evaluate [Strap](https://therohans.com), a closed-source L
 
 ---
 
+## Examples
+
+![](assets/accuracy_by_dataset.png)
+
+
+![](assets/elapsed_distribution.png)
+
+
+![](assets/ruler_heatmap.png)
+
+---
+
 ## What is Strap?
 
 Strap is a closed-source AI harness designed for small, locally-hosted models. Its distinguishing features relative to a bare Ollama call are:
