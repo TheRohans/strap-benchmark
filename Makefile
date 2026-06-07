@@ -14,7 +14,7 @@ QWEN_MODEL     ?= qwen3.6:27b
 # ── llm judge (required for math benchmark only) ──────────────────────────────
 # Point at LM Studio (default port 1234) or any OpenAI-compatible server
 JUDGE_BASE_URL ?= http://localhost:1234/v1
-JUDGE_MODEL    ?= qwen3.6:27b
+JUDGE_MODEL    ?= qwen2.5-math-7b-instruct
 JUDGE_API_KEY  ?= ollama
 
 # ── benchmark parameters ──────────────────────────────────────────────────────

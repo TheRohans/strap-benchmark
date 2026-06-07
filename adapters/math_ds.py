@@ -8,9 +8,15 @@ ALL_SUBJECTS = None  # None = all
 JUDGE_PROMPT = (
     "The model was asked to solve a math problem. "
     "The correct answer is: {expected}\n"
-    "Does the model's response contain the correct answer, even if formatted differently "
-    "(e.g. equivalent fractions, different LaTeX notation)? "
+    "Check the model's response — especially any \\boxed{{}} expression at the end — "
+    "and decide whether it contains the correct answer, even if formatted differently "
+    "(e.g. equivalent fractions, simplified radicals, different LaTeX notation). "
     "Answer PASS if correct, FAIL if wrong or missing."
+)
+
+_ANSWER_SUFFIX = (
+    "\n\nReason step by step, then state your final answer on its own line "
+    "enclosed in \\boxed{} notation, like: \\boxed{42}"
 )
 
 
@@ -37,7 +43,7 @@ def load(
             "source": "math500",
             "subject": ex["subject"],
             "level": ex["level"],
-            "prompt": ex["problem"],
+            "prompt": ex["problem"] + _ANSWER_SUFFIX,
             "expected": ex["answer"],
             "judge_prompt": JUDGE_PROMPT.format(expected=ex["answer"]),
         })

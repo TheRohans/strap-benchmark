@@ -3,13 +3,16 @@
 Load benchmark result JSON files and produce comparison charts.
 
 Usage:
-    python analyze.py                          # all files in results/
-    python analyze.py results/20260603_*.json  # specific files
-    python analyze.py --source gsm8k           # filter by dataset
-    python analyze.py --out report.png         # save instead of show
+    python analyze.py                            # show charts interactively
+    python analyze.py --out-dir reports/         # save all charts as PNGs
+    python analyze.py results/20260603_*.json    # specific files
+    python analyze.py --source gsm8k             # filter by dataset
+    python analyze.py --out report.png --chart source  # single chart to file
+    python analyze.py --chart ruler --out-dir reports/ # RULER heatmap only
 """
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -30,7 +33,6 @@ DEFAULT_COLOR = "#bab0ac"
 
 def load_file(path: Path) -> dict:
     raw = json.loads(path.read_text())
-    # support both old format (bare dict) and new envelope format
     if "results" in raw and "meta" in raw:
         return raw
     return {"meta": {"timestamp": path.stem, "datasets": ["unknown"], "sources": []}, "results": raw}
@@ -133,7 +135,6 @@ def plot_by_source(runs: list[dict], out_path: str | None) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(max(10, len(sources) * 2.5), 5))
     fig.suptitle("Benchmark comparison by dataset", fontsize=13, fontweight="bold")
 
-    # merge all runs — average across multiple run files
     acc_data: dict[str, list[float | None]] = {r: [] for r in runners}
     spd_data: dict[str, list[float | None]] = {r: [] for r in runners}
 
@@ -205,7 +206,6 @@ def plot_per_task(runs: list[dict], out_path: str | None) -> None:
                 ax.scatter(r["id"], r["elapsed"], marker=marker, color=color,
                            label=runner, alpha=0.7, s=60)
 
-    # deduplicate legend
     handles, labels = ax.get_legend_handles_labels()
     by_label = dict(zip(labels, handles))
     ax.legend(by_label.values(), by_label.keys())
@@ -217,10 +217,113 @@ def plot_per_task(runs: list[dict], out_path: str | None) -> None:
     _finish(fig, out_path)
 
 
+def plot_elapsed_distribution(runs: list[dict], out_path: str | None) -> None:
+    """Box plot of elapsed time distribution per runner, split by source."""
+    runners = all_runners(runs)
+    sources = all_sources(runs)
+
+    if not sources:
+        return
+
+    n_sources = len(sources)
+    fig, axes = plt.subplots(1, n_sources, figsize=(max(8, n_sources * 4), 5), sharey=True)
+    fig.suptitle("Elapsed time distribution by dataset", fontsize=13, fontweight="bold")
+    if n_sources == 1:
+        axes = [axes]
+
+    for ax, source in zip(axes, sources):
+        data = []
+        labels = []
+        for runner in runners:
+            all_records: list[dict] = []
+            for run in runs:
+                all_records += records_for(run, runner, source)
+            if all_records:
+                data.append([r["elapsed"] for r in all_records])
+                labels.append(runner)
+
+        if data:
+            bp = ax.boxplot(data, tick_labels=labels, patch_artist=True)
+            for patch, label in zip(bp["boxes"], labels):
+                patch.set_facecolor(RUNNER_COLORS.get(label, DEFAULT_COLOR))
+                patch.set_alpha(0.7)
+
+        ax.set_title(source)
+        ax.set_ylabel("Elapsed (s)" if source == sources[0] else "")
+        ax.grid(axis="y", alpha=0.3)
+
+    plt.tight_layout()
+    _finish(fig, out_path)
+
+
+def plot_ruler_heatmap(runs: list[dict], out_path: str | None) -> None:
+    """Heatmap of RULER NIAH pass rate by context length × needle depth per runner."""
+    ruler_records: dict[tuple, list[bool]] = {}
+
+    for run in runs:
+        for runner, results in run["results"].items():
+            for r in results:
+                if r.get("source") != "ruler_niah":
+                    continue
+                m = re.match(r"ruler_niah_(\d+)tok_(\d+)pct_", r["id"])
+                if not m:
+                    continue
+                length = int(m.group(1))
+                depth_pct = int(m.group(2))
+                key = (runner, length, depth_pct)
+                ruler_records.setdefault(key, []).append(r["pass"])
+
+    if not ruler_records:
+        print("No RULER results found, skipping heatmap.")
+        return
+
+    ruler_runners = sorted({k[0] for k in ruler_records})
+    lengths = sorted({k[1] for k in ruler_records})
+    depths_pct = sorted({k[2] for k in ruler_records})
+
+    n_runners = len(ruler_runners)
+    fig, axes = plt.subplots(1, n_runners, figsize=(6 * n_runners, max(3, len(depths_pct) * 1.2)))
+    fig.suptitle("RULER NIAH: pass rate by context length × needle depth",
+                 fontsize=13, fontweight="bold")
+    if n_runners == 1:
+        axes = [axes]
+
+    for ax, runner in zip(axes, ruler_runners):
+        matrix = np.full((len(depths_pct), len(lengths)), np.nan)
+        for i, depth in enumerate(depths_pct):
+            for j, length in enumerate(lengths):
+                records = ruler_records.get((runner, length, depth), [])
+                if records:
+                    matrix[i, j] = sum(records) / len(records) * 100
+
+        im = ax.imshow(matrix, vmin=0, vmax=100, cmap="RdYlGn", aspect="auto")
+        ax.set_xticks(range(len(lengths)))
+        ax.set_xticklabels([f"{l:,}" for l in lengths], rotation=15, ha="right")
+        ax.set_yticks(range(len(depths_pct)))
+        ax.set_yticklabels([f"{d}%" for d in depths_pct])
+        ax.set_xlabel("Context length (tokens)")
+        ax.set_ylabel("Needle depth")
+        ax.set_title(runner)
+
+        for i in range(len(depths_pct)):
+            for j in range(len(lengths)):
+                val = matrix[i, j]
+                if not np.isnan(val):
+                    text_color = "white" if val < 30 or val > 85 else "black"
+                    ax.text(j, i, f"{val:.0f}%", ha="center", va="center",
+                            fontsize=11, fontweight="bold", color=text_color)
+
+        plt.colorbar(im, ax=ax, label="Pass %")
+
+    plt.tight_layout()
+    _finish(fig, out_path)
+
+
 def _finish(fig, out_path: str | None) -> None:
     if out_path:
-        fig.savefig(out_path, dpi=150)
-        print(f"Saved to {out_path}")
+        fig.savefig(out_path, dpi=150, bbox_inches="tight")
+        print(f"Saved {out_path}")
+        plt.close(fig)
     else:
         plt.show()
 
@@ -230,13 +333,17 @@ def _finish(fig, out_path: str | None) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("files", nargs="*", help="result JSON files (default: results/*.json)")
-    parser.add_argument("--source", help="filter to one dataset source (e.g. gsm8k, math)")
-    parser.add_argument("--out", help="save figure to this path instead of showing it")
-    parser.add_argument("--chart", choices=["source", "time", "tasks", "all"], default="all",
+    parser.add_argument("--source", help="filter to one dataset source (e.g. gsm8k, math500)")
+    parser.add_argument("--out", help="save to this path (only for a single --chart)")
+    parser.add_argument("--out-dir", help="directory to save all charts as PNGs (e.g. reports/)")
+    parser.add_argument("--chart",
+                        choices=["source", "time", "tasks", "elapsed", "ruler", "all"],
+                        default="all",
                         help="which chart(s) to produce (default: all)")
     args = parser.parse_args()
 
     paths = [Path(f) for f in args.files] if args.files else sorted(Path("results").glob("*.json"))
+    paths = [p for p in paths if p.name != ".gitkeep"]
     if not paths:
         print("No result files found.", file=sys.stderr)
         sys.exit(1)
@@ -244,12 +351,27 @@ def main() -> None:
     runs = load_all(paths, args.source)
     print(f"Loaded {len(runs)} run file(s): {[r['meta']['timestamp'] for r in runs]}")
 
+    out_dir = Path(args.out_dir) if args.out_dir else None
+    if out_dir:
+        out_dir.mkdir(parents=True, exist_ok=True)
+
+    def chart_path(name: str) -> str | None:
+        if args.chart != "all" and args.out:
+            return args.out
+        if out_dir:
+            return str(out_dir / f"{name}.png")
+        return None
+
     if args.chart in ("source", "all"):
-        plot_by_source(runs, args.out if args.chart != "all" else None)
+        plot_by_source(runs, chart_path("accuracy_by_dataset"))
     if args.chart in ("time", "all"):
-        plot_over_time(runs, args.out if args.chart != "all" else None)
+        plot_over_time(runs, chart_path("trends_over_time"))
     if args.chart in ("tasks", "all"):
-        plot_per_task(runs, args.out if args.chart != "all" else None)
+        plot_per_task(runs, chart_path("per_task_elapsed"))
+    if args.chart in ("elapsed", "all"):
+        plot_elapsed_distribution(runs, chart_path("elapsed_distribution"))
+    if args.chart in ("ruler", "all"):
+        plot_ruler_heatmap(runs, chart_path("ruler_heatmap"))
 
 
 if __name__ == "__main__":

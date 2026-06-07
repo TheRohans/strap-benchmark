@@ -17,11 +17,18 @@ def _normalise(text: str) -> str:
 
 _judge_client: OpenAI | None = None
 
+_DEFAULT_JUDGE_URL   = "http://localhost:11434/v1"
+_DEFAULT_JUDGE_MODEL = "qwen2.5:14b"
 
-def _get_judge(base_url: str = "http://localhost:11434/v1", model: str = "qwen2.5:14b") -> tuple[OpenAI, str]:
+
+def _get_judge() -> tuple[OpenAI, str]:
+    import os
     global _judge_client
+    base_url = os.environ.get("JUDGE_BASE_URL", _DEFAULT_JUDGE_URL)
+    model    = os.environ.get("JUDGE_MODEL",    _DEFAULT_JUDGE_MODEL)
+    api_key  = os.environ.get("JUDGE_API_KEY",  "ollama")
     if _judge_client is None:
-        _judge_client = OpenAI(base_url=base_url, api_key="ollama")
+        _judge_client = OpenAI(base_url=base_url, api_key=api_key)
     return _judge_client, model
 
 
@@ -72,14 +79,28 @@ def _llm_judge(task: dict, response: str) -> dict:
     judge_prompt = (
         f"{context}\n\n"
         f"Evaluation criteria: {task['judge_prompt']}\n\n"
-        "Answer with exactly PASS or FAIL, then a one-sentence reason."
+        "Your response MUST begin with the single word PASS or FAIL (all caps), "
+        "followed by a colon and one short reason. Example: 'PASS: answer matches.'"
     )
 
     resp = client.chat.completions.create(
         model=model,
         messages=[{"role": "user", "content": judge_prompt}],
-        max_tokens=100,
+        max_tokens=150,
     )
     verdict_text = (resp.choices[0].message.content or "").strip()
-    passed = verdict_text.upper().startswith("PASS")
-    return {"pass": passed, "method": "llm_judge", "verdict": verdict_text, "got": response[:200]}
+    passed = _parse_verdict(verdict_text)
+    return {"pass": passed, "method": "llm_judge", "verdict": verdict_text, "got": response[-300:]}
+
+
+def _parse_verdict(text: str) -> bool:
+    """Find the last PASS/FAIL keyword in the verdict; fall back to positive-language detection."""
+    hits = [(m.start(), m.group().upper()) for m in re.finditer(r"\b(PASS|FAIL)\b", text, re.IGNORECASE)]
+    if hits:
+        return hits[-1][1] == "PASS"
+    # Judge didn't use the keywords — look for conclusive positive language
+    positive = re.search(r"\b(correct|right|accurate|yes)\b", text, re.IGNORECASE)
+    negative = re.search(r"\b(incorrect|wrong|missing|no\b|not correct)", text, re.IGNORECASE)
+    if positive and not negative:
+        return True
+    return False

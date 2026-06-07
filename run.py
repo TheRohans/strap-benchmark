@@ -115,6 +115,8 @@ def run_runner(name: str, runner_factory, tasks: list[dict]) -> list[dict]:
             print(f"    expected : {expected}")
             if result.get("method") == "error":
                 print(f"      error  : {result.get('error', '?')}")
+            if result.get("method") == "llm_judge":
+                print(f"     verdict : {result.get('verdict', '?')}")
             for line in got.splitlines():
                 print(f"             | {line}")
 
